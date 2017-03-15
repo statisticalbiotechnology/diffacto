@@ -30,7 +30,7 @@ python run_diffacto.py -i iPRG.novo.pep.csv -samples iPRG.samples.lst -out iPRG.
 #### Example-2:
 
 <code>
-python run_diffacto.py -i HBY20Mix.peptides.csv -log2 False -samples HBY20Mix.samples.lst -db UP000002311_559292.fasta -out HBY20Mix.protein.txt -min_samples 30 -impute_threshold 0.7 -log2 False -reference REF
+python run_diffacto.py -i HBY20Mix.peptides.csv -samples HBY20Mix.samples.lst -db UP000002311_559292.fasta -out HBY20Mix.protein.txt -min_samples 30 -impute_threshold 0.7 -log2 False -reference REF
 </code>
 
 #
