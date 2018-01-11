@@ -191,7 +191,7 @@ def parsimony_grouping(g, peps):
     Inputs:
         g:  an undirected graph with peptide <-> protein as edges
         peps: the set of peptide sequences, nodes not listed in the peptide set
-              are protein IDs. 
+              are protein IDs.
     '''
     not_peps = set(g.nodes()) - set(peps)
     prot_groups = dict()
@@ -308,8 +308,12 @@ def main():
     apars = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    apars.add_argument('-i', default='peptides.csv',
-                       help='Quantification result of peptides in CSV format.')
+    apars.add_argument('-i', required=True, nargs=1,
+                       help='''Peptides abundances in CSV format.
+                               The first row should contain names for all samples.
+                               The first column should contain unique peptide sequences.
+                               Missing values should be empty instead of zeros.
+                       ''')
     # The first column contains unique peptide sequences
     # Missing values should be empty instead of zeros
 
@@ -666,7 +670,7 @@ def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
         batch_size:     number of permutations for every iteration
         terminate_t:    target number of permutation tests with better statistics to terminate the simulation for one protein
         target_fdr:     target level of FDR to stop simulation for the remaining proteins.
-        sn_threshold:   sinal-to-noise threshold for exclusion of non-informative proteins. 
+        sn_threshold:   sinal-to-noise threshold for exclusion of non-informative proteins.
     '''
     proteins = sorted(diffacto_res.keys())
     preTermination = set()
