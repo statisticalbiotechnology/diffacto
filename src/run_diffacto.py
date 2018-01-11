@@ -11,7 +11,7 @@ import numpy as np
 import pandas
 from numpy import array, isfinite, nanmean, nansum
 from pyteomics import fasta
-from scipy import stats
+from scipy import stats, optimize
 # from numba import jit  # # Enable just-in-time compiler for speeding up
 
 
