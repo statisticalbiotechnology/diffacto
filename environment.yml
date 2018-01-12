@@ -1,0 +1,40 @@
+name: diffacto_pack_35
+channels:
+- defaults
+dependencies:
+- ca-certificates=2017.08.26=ha1e5d58_0
+- certifi=2017.11.5=py35hd00889a_0
+- decorator=4.1.2=py35hf37c5b3_0
+- intel-openmp=2018.0.0=h8158457_8
+- libcxx=4.0.1=h579ed51_0
+- libcxxabi=4.0.1=hebd6815_0
+- libedit=3.1=hb4e282d_0
+- libffi=3.2.1=h475c297_4
+- libgfortran=3.0.1=h93005f0_2
+- mkl=2018.0.1=hfbd8650_4
+- ncurses=6.0=hd04f020_2
+- networkx=2.0=py35hb193ae4_0
+- numpy=1.14.0=py35h8a80b8c_0
+- openssl=1.0.2n=hdbc3d79_0
+- pandas=0.22.0=py35h0a44026_0
+- pip=9.0.1=py35h33ce766_4
+- python=3.5.4=he720263_23
+- python-dateutil=2.6.1=py35h10515e0_1
+- pytz=2017.3=py35heeb7564_0
+- readline=7.0=hc1231fa_4
+- scikit-learn=0.19.1=py35h2b554eb_0
+- scipy=1.0.0=py35h8b35106_0
+- setuptools=36.5.0=py35h52cde6a_0
+- six=1.11.0=py35h39a4c60_1
+- sqlite=3.20.1=h7e4c145_2
+- tk=8.6.7=h35a86e2_3
+- wheel=0.30.0=py35h5c0b906_1
+- xz=5.2.3=h0278029_2
+- zlib=1.2.11=hf3cbc9b_2
+- pip:
+  - altgraph==0.15
+  - future==0.16.0
+  - macholib==1.9
+  - pefile==2017.11.5
+  - pyinstaller==3.3.1
+  - pyteomics==3.4.2
