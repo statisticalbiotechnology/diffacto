@@ -15,7 +15,7 @@ Packages needed:
 (Installation via _pip_ )   
 <code> pip install numpy scipy pandas networkx scikit-learn pyteomics </code>  
 (Installation via _conda_ )  
-<code> conda env create -f environment.yml  
+<code> conda env create -f environment.yml    
 source activate diffacto_35  
 </code>
 
