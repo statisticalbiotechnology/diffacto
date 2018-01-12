@@ -394,7 +394,7 @@ def main():
     args.use_unique = boolparam(args.use_unique)
     print(args)
     diffacto_res = dict()
-    df = pandas.read_csv(args.i, index_col=0)
+    df = pandas.read_csv(args.i[0], index_col=0)
     df.index = [i.upper().replace('I', 'L') for i in df.index]
     print("Abundance matrix loaded: %d peptides" % len(df.index))
 
