@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
 from __future__ import division, print_function
 
 import csv
@@ -6,12 +7,12 @@ import re
 import warnings
 from collections import defaultdict
 
+from scipy import optimize, stats
 import networkx as nx
 import numpy as np
 import pandas
 from numpy import array, isfinite, nanmean, nansum
 from pyteomics import fasta
-from scipy import stats, optimize
 # from numba import jit  # # Enable just-in-time compiler for speeding up
 
 
