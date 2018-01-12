@@ -13,10 +13,12 @@ Packages needed:
 * [pyteomics](https://pythonhosted.org/pyteomics) 3.3+
 
 (Installation via _pip_ )   
-```pip install numpy scipy pandas networkx scikit-learn pyteomics
+```
+pip install numpy scipy pandas networkx scikit-learn pyteomics
 ```  
 (Installation via _conda_ )  
-```conda env create -f environment.yml    
+```
+conda env create -f environment.yml    
 source activate diffacto_35  
 ```
 ---
