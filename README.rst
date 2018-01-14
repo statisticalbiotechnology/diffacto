@@ -1,32 +1,34 @@
-Diffacto: Differential (Factor) Analysis for Comparative Shotgun Proteomics
-=====
+Diffacto: Differential Factor Analysis for Comparative Shotgun Proteomics
+==========================================================================
 
 Requirements
-----
-[Anaconda](https://www.continuum.io/downloads) Python3.5
+--------------
+
+`Anaconda<https://www.continuum.io/downloads>`_ Python3.5+
 
 Packages needed:
-* numpy 1.10+
-* scipy 0.17+
-* pandas 0.18+
-* networkx 1.10+
-* scikit-learn 0.17+
-* [pyteomics](https://pythonhosted.org/pyteomics) 3.3+
 
-Installation via _pip_
-*******
+- numpy 1.10+
+- scipy 0.17+
+- pandas 0.18+
+- networkx 1.10+
+- scikit-learn 0.17+
+- `pyteomics<https://pythonhosted.org/pyteomics>`_ 3.3+
 
-::
-
-    pip install numpy scipy pandas networkx scikit-learn pyteomics``
-
-Installation via _conda_
-*******
+Installation via ``pip``
+*************************
 
 ::
 
-    conda env create -f environment.yml
-    source activate diffacto_35
+  pip install numpy scipy pandas networkx scikit-learn pyteomics
+
+Installation via ``conda``
+***************************
+
+::
+
+  conda env create -f environment.yml
+  source activate diffacto_35
 
 
 Usage
@@ -88,15 +90,15 @@ Usage
 Example
 -----
 
-* Peptide abundances recorded in log scale. map peptides to the protein database HUMAN.fa, using GMM (Gaussian Mixture Model) for per-sample normalization, read sample groups in the file sampleLables.txt, and output protein quantification result to the file protein.txt. Peptide abundance will be scaled by comparing average abundances of all samples.
+- Peptide abundances recorded in log scale. map peptides to the protein database HUMAN.fa, using GMM (Gaussian Mixture Model) for per-sample normalization, read sample groups in the file sampleLables.txt, and output protein quantification result to the file protein.txt. Peptide abundance will be scaled by comparing average abundances of all samples.
 
 ::
 
-    python run_diffacto.py -i peptides.csv -log2 True -db HUMAN.fa -normalize GMM -samples sampleLables.txt -out protein.txt``
+  python run_diffacto.py -i peptides.csv -log2 True -db HUMAN.fa -normalize GMM -samples sampleLables.txt -out protein.txt
 
 
-* Peptide abundances recorded in linear scale, using median abundances for per-sample normalization, read sample groups in the file sampleLables.txt, and output protein quantification result to the file protein.txt. Peptide abundance will be scaled by comparing to average abundances of samples labeled as of Sample1 and Sample3 in the sample list. Use peptides unique to the protein and quantified at least in 20 samples. For a given group of sample, if missing values consist more than 70% of the results, impute missing values at half of the minimum non-missing abundance. Apply sequential Monte Carlo permutation tests and estimate MCFDR for differentially expressed proteins.
+- Peptide abundances recorded in linear scale, using median abundances for per-sample normalization, read sample groups in the file sampleLables.txt, and output protein quantification result to the file protein.txt. Peptide abundance will be scaled by comparing to average abundances of samples labeled as of Sample1 and Sample3 in the sample list. Use peptides unique to the protein and quantified at least in 20 samples. For a given group of sample, if missing values consist more than 70% of the results, impute missing values at half of the minimum non-missing abundance. Apply sequential Monte Carlo permutation tests and estimate MCFDR for differentially expressed proteins.
 
 ::
 
-    python run_diffacto.py -i peptides.csv -out protein.txt -normalize median -samples sampleLables.txt -ref Sample1;Sample3  -use_unique True  -min_samples 20  -impute_threshold 0.7 -mc_out protein.MCFDR.txt``
+  python run_diffacto.py -i peptides.csv -out protein.txt -normalize median -samples sampleLables.txt -ref Sample1;Sample3  -use_unique True  -min_samples 20  -impute_threshold 0.7 -mc_out protein.MCFDR.txt

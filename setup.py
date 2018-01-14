@@ -38,6 +38,8 @@ setup(
     url='https://github.com/statisticalbiotechnology/diffacto',  # Optional
     author='Bo Zhang, Lukas Käll, KTH',  # Optional
     author_email='lukas.kall@scilifelab.se',  # Optional
+    maintainer='Lukas Käll, KTH',  # Optional
+    maintainer_email='lukas.kall@scilifelab.se',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
