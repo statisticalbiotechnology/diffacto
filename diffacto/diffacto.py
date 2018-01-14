@@ -2,6 +2,10 @@
 # -*- coding: UTF-8 -*-
 from __future__ import division, print_function
 
+"""diffacto.diffacto: provides entry point main()."""
+
+__version__ = "1.0.1"
+
 import csv
 import re
 import warnings
@@ -13,9 +17,8 @@ import numpy as np
 import pandas
 from numpy import array, isfinite, nanmean, nansum
 from pyteomics import fasta
+
 # from numba import jit  # # Enable just-in-time compiler for speeding up
-
-
 #@jit
 def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
                force_iter=False, min_noise=1e-4, fill_nan=0.0):
