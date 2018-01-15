@@ -40,7 +40,7 @@ setup(
     author_email='lukas.kall@scilifelab.se',  # Optional
     maintainer='Lukas Käll, KTH',  # Optional
     maintainer_email='lukas.kall@scilifelab.se',  # Optional
-
+    license='Apache',
     # Classifiers help users find your project by categorizing it.
     #
     # For a list of valid classifiers, see
@@ -57,7 +57,7 @@ setup(
         'Topic :: Software Development :: Build Tools',
 
         # Pick your license as you wish
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: Apache License, Version 2.0',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
