@@ -309,6 +309,18 @@ def pqpq(peptide_abundances, metric='correlation', method='complete', t=0.4):
 def main():
     import argparse
     import sys
+
+    DEBUG = False
+    SUMMARIZE_EACH_RUN = False
+    TOPN = 3
+    T_PQPQ = 0.4
+    EXAMPLE = 'HUMAN'
+
+    MC_SIMULATION = True
+    MC_MAX_N = 200000
+    MC_BATCH_SIZE = 100
+    MC_MAX_HIT = MC_MAX_N / 1000
+
     apars = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -719,15 +731,4 @@ def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
 
 
 if __name__ == '__main__':
-    DEBUG = False
-    SUMMARIZE_EACH_RUN = False
-    TOPN = 3
-    T_PQPQ = 0.4
-    EXAMPLE = 'HUMAN'
-
-    MC_SIMULATION = True
-    MC_MAX_N = 200000
-    MC_BATCH_SIZE = 100
-    MC_MAX_HIT = MC_MAX_N / 1000
-
     main()
