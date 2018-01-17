@@ -303,6 +303,101 @@ def pqpq(peptide_abundances, metric='correlation', method='complete', t=0.4):
     return ind
 
 
+# =====================
+# Monte Carlo permutation tests
+def monte_carlo_permutation(samp_index, n):
+    '''
+    Generating a batch of random permutations of sample indexes
+    Inputs:
+        samp_index: array indexes of sample groups
+        n:          size of the batch of permutations
+    '''
+    flat = np.hstack(samp_index)
+    ix = [0]
+    [ix.append(ix[-1] + len(i)) for i in samp_index]
+    for i in range(n):
+        permute = np.random.permutation(flat)
+        new_ix = [permute[ix[i - 1]:ix[i]] for i in range(1, len(ix))]
+        yield np.array(new_ix)
+
+
+def calc_q(pvals):
+    '''
+    Calculationg q-values based on a list of p-values, with a conservative estimate
+        of the proportion of true null hypotheses (pi0_hat) based on the given p-values.
+    '''
+    pv = np.array(pvals)
+    pv = pv[isfinite(pv)]
+    pi0_hat = min(1, np.sum(pv) * 2 / len(pv))
+    ranking = pv.argsort().argsort() + 1
+    qlist = pv * pi0_hat * len(pv) / ranking
+    for i, rank in enumerate(ranking):
+        qlist[i] = min(qlist[ranking >= rank])
+    qlist = list(qlist)
+    qvals = np.ones_like(pvals)
+    for i, e in enumerate(pvals):
+        if isfinite(e):
+            qvals[i] = qlist.pop(0)
+    return qvals
+
+
+def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
+                  terminate_t=50, target_fdr=0.05, sn_threshold=-20):
+    '''
+    Sequential Monte Carlo permutation test
+    Inputs:
+        diffacto_res:   a dictionary of Diffacto statistics for each protein
+        sampIx:         array indexes of sample groups
+        max_mc:         maximun number of random permutations
+        batch_size:     number of permutations for every iteration
+        terminate_t:    target number of permutation tests with better statistics to terminate the simulation for one protein
+        target_fdr:     target level of FDR to stop simulation for the remaining proteins.
+        sn_threshold:   sinal-to-noise threshold for exclusion of non-informative proteins.
+    '''
+    proteins = sorted(diffacto_res.keys())
+    preTermination = set()
+    for batch in range(1, int(max_mc / batch_size) + 2):
+        mc_pvals = []
+        for prot in proteins:
+            grand_ave, weight, abd_qc, sn, f, T, N = diffacto_res[prot]
+            if sn <= sn_threshold:
+                mc_pvals.append(np.nan)
+                preTermination.add(prot)
+                continue
+            if prot in preTermination:
+                mc_pvals.append(T / N)
+                continue
+            for ix in monte_carlo_permutation(sampIx, batch_size):
+                N += 1
+                try:
+                    yhat = weighted_average(weight, abd_qc, ix)
+                    f_mc, _, _ = f_ANOVA(abd_qc, ix, yhat, grand_ave)
+                except:
+                    f_mc = f
+                if f_mc >= f:
+                    T += 1
+            diffacto_res[prot][-1] = N  # 1 + Total MC simulations performed
+            diffacto_res[prot][-2] = T  # 1 + MC simulations with better stats
+            mc_pvals.append(T / N)
+            if T >= terminate_t:
+                preTermination.add(prot)
+
+        mc_fdr = calc_q(mc_pvals)
+        curr_prot = [proteins.index(p) for p in proteins
+                     if p not in preTermination]
+
+        if len(curr_prot) == 0 \
+                or max(mc_fdr[curr_prot]) < target_fdr \
+                or batch * batch_size >= max_mc:
+            print("Monte Carlo permutation test finished.")
+            return zip(proteins, mc_pvals, mc_fdr)
+        else:
+            print("%d times simulation, %d proteins remaining (FDR %.3f)" %
+                  (batch * batch_size, len(curr_prot), max(mc_fdr[curr_prot])))
+
+
+
+
 # =================================================
 #  Main
 # =================================================
@@ -635,100 +730,6 @@ def main():
 
         for prot, p, q in mc_result:
             print(prot, p, q, sep='\t', file=mc_out)
-
-
-# =====================
-# Monte Carlo permutation tests
-def monte_carlo_permutation(samp_index, n):
-    '''
-    Generating a batch of random permutations of sample indexes
-    Inputs:
-        samp_index: array indexes of sample groups
-        n:          size of the batch of permutations
-    '''
-    flat = np.hstack(samp_index)
-    ix = [0]
-    [ix.append(ix[-1] + len(i)) for i in samp_index]
-    for i in range(n):
-        permute = np.random.permutation(flat)
-        new_ix = [permute[ix[i - 1]:ix[i]] for i in range(1, len(ix))]
-        yield np.array(new_ix)
-
-
-def calc_q(pvals):
-    '''
-    Calculationg q-values based on a list of p-values, with a conservative estimate
-        of the proportion of true null hypotheses (pi0_hat) based on the given p-values.
-    '''
-    pv = np.array(pvals)
-    pv = pv[isfinite(pv)]
-    pi0_hat = min(1, np.sum(pv) * 2 / len(pv))
-    ranking = pv.argsort().argsort() + 1
-    qlist = pv * pi0_hat * len(pv) / ranking
-    for i, rank in enumerate(ranking):
-        qlist[i] = min(qlist[ranking >= rank])
-    qlist = list(qlist)
-    qvals = np.ones_like(pvals)
-    for i, e in enumerate(pvals):
-        if isfinite(e):
-            qvals[i] = qlist.pop(0)
-    return qvals
-
-
-def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
-                  terminate_t=50, target_fdr=0.05, sn_threshold=-20):
-    '''
-    Sequential Monte Carlo permutation test
-    Inputs:
-        diffacto_res:   a dictionary of Diffacto statistics for each protein
-        sampIx:         array indexes of sample groups
-        max_mc:         maximun number of random permutations
-        batch_size:     number of permutations for every iteration
-        terminate_t:    target number of permutation tests with better statistics to terminate the simulation for one protein
-        target_fdr:     target level of FDR to stop simulation for the remaining proteins.
-        sn_threshold:   sinal-to-noise threshold for exclusion of non-informative proteins.
-    '''
-    proteins = sorted(diffacto_res.keys())
-    preTermination = set()
-    for batch in range(1, int(max_mc / batch_size) + 2):
-        mc_pvals = []
-        for prot in proteins:
-            grand_ave, weight, abd_qc, sn, f, T, N = diffacto_res[prot]
-            if sn <= sn_threshold:
-                mc_pvals.append(np.nan)
-                preTermination.add(prot)
-                continue
-            if prot in preTermination:
-                mc_pvals.append(T / N)
-                continue
-            for ix in monte_carlo_permutation(sampIx, batch_size):
-                N += 1
-                try:
-                    yhat = weighted_average(weight, abd_qc, ix)
-                    f_mc, _, _ = f_ANOVA(abd_qc, ix, yhat, grand_ave)
-                except:
-                    f_mc = f
-                if f_mc >= f:
-                    T += 1
-            diffacto_res[prot][-1] = N  # 1 + Total MC simulations performed
-            diffacto_res[prot][-2] = T  # 1 + MC simulations with better stats
-            mc_pvals.append(T / N)
-            if T >= terminate_t:
-                preTermination.add(prot)
-
-        mc_fdr = calc_q(mc_pvals)
-        curr_prot = [proteins.index(p) for p in proteins
-                     if p not in preTermination]
-
-        if len(curr_prot) == 0 \
-                or max(mc_fdr[curr_prot]) < target_fdr \
-                or batch * batch_size >= max_mc:
-            print("Monte Carlo permutation test finished.")
-            return zip(proteins, mc_pvals, mc_fdr)
-        else:
-            print("%d times simulation, %d proteins remaining (FDR %.3f)" %
-                  (batch * batch_size, len(curr_prot), max(mc_fdr[curr_prot])))
-
 
 if __name__ == '__main__':
     main()
