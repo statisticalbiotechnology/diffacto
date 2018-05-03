@@ -70,8 +70,11 @@ def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
     λ = np.sqrt(np.diag(C) * 0.75)
     ψ = np.diag(C) - λ ** 2
     old_psi = ψ
+    old_lambda = λ
     alpha = weight * n_features
     E = 1.0
+    min_noise_square = min_noise ** 2
+    C_diag = np.diag(C)
     for i in range(max_iter):
         # E step
         φ = λ / ψ
@@ -82,12 +85,15 @@ def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
         # M step
         λ = ζ.T / (E + ψ * alpha)
         λ = np.asarray(λ)[0]
-        ψ = np.diag(C) - np.asarray(ζ)[0] * λ + ψ * alpha * λ * (mu - λ)
-        ψ[ψ < min_noise ** 2] = min_noise ** 2
+        ψ = C_diag - np.asarray(ζ)[0] * λ + ψ * alpha * λ * (mu - λ)
+        ψ = np.maximum(ψ, min_noise_square)
+        if ψ[-1] == old_psi[-1] and ψ[0] == old_psi[0] and np.array_equal(ψ, old_psi) and np.array_equal(λ, old_lambda):
+            break
         if not force_iter:
             if abs(ψ - old_psi).max() / old_psi.max() < min_noise / 10:
                 break
         old_psi = ψ
+        old_lambda = λ
     loading = np.sqrt(E[0, 0]) * λ
     φ = loading / ψ
     weights = loading / loading.max()  # rescale loadings to the range of [0,1]
