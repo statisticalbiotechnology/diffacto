@@ -599,7 +599,7 @@ def main():
             continue
         # =====----=====-----=====-----=====
         peps = pg[prot]  # constituent peptides
-        dx = df.ix[[p for p in peps if p in df.index]]  # dataframe
+        dx = df.ix[[p for p in sorted(peps) if p in df.index]]  # dataframe
         pep_count = len(dx)  # number of peptides
         pep_abd = dx[samples].values
 
