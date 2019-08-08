@@ -587,6 +587,23 @@ def main():
     if args.use_unique:
         df = df[[len(pep2prot[p]) == 1 for p in df.index]]
 
+    #Check that we don't have any peptides with a single non-missing value. These tend to break diffacto, because in fast_farms we end up with a covariance matrix of less than full rank. Which the algorithm is not set up to handle.
+    nonZeroNonMissing = np.vectorize(lambda x : ~np.isnan(x) and x > 0)
+    for prot in sorted(pg.keys()):
+        if prot == 'nan':
+            continue
+        if DEBUG and EXAMPLE not in prot:
+            continue
+        # =====----=====-----=====-----=====
+        peps = pg[prot]  # constituent peptides
+        dx = df.ix[[p for p in sorted(peps) if p in df.index]]  # dataframe
+        pep_count = len(dx)  # number of peptides
+        pep_abd = dx[samples].values
+        counts = np.sum(nonZeroNonMissing(pep_abd), axis = 1)
+        if any(counts < 2):
+            print("Protein {} contained peptides with fewer than two non-missing or non-zero values. Please remove these peptides".format(prot))
+            return
+
     # -------------------------------------------------------------------------
     # perform differential analysis
     output_header = ['Protein', 'N.Pept', 'Q.Pept', 'S/N', 'P(PECA)']
