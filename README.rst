@@ -4,7 +4,7 @@ Diffacto: Differential Factor Analysis for Comparative Shotgun Proteomics
 Requirements
 --------------
 
-`Anaconda<https://www.continuum.io/downloads>`_ Python3.5+
+Anaconda_ Python3.5+
 
 Packages needed:
 
@@ -13,7 +13,10 @@ Packages needed:
 - pandas 0.18+
 - networkx 1.10+
 - scikit-learn 0.17+
-- `pyteomics<https://pythonhosted.org/pyteomics>`_ 3.3+
+- pyteomics_ 3.3+
+
+.. _Anaconda: https://www.continuum.io/downloads
+.. _pyteomics: https://pythonhosted.org/pyteomics
 
 Installation via ``pip``
 *************************
@@ -88,7 +91,7 @@ Usage
 
 
 Example
------
+-------
 
 - Peptide abundances recorded in log scale. map peptides to the protein database HUMAN.fa, using GMM (Gaussian Mixture Model) for per-sample normalization, read sample groups in the file sampleLables.txt, and output protein quantification result to the file protein.txt. Peptide abundance will be scaled by comparing average abundances of all samples.
 
