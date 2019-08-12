@@ -588,7 +588,7 @@ def main():
         df = df[[len(pep2prot[p]) == 1 for p in df.index]]
 
     #Check that we don't have any peptides with a single non-missing value. These tend to break diffacto, because in fast_farms we end up with a covariance matrix of less than full rank. Which the algorithm is not set up to handle.
-    nonZeroNonMissing = np.vectorize(lambda x : ~np.isnan(x) and x > 0, otypes = np.bool)
+    nonZeroNonMissing = np.vectorize(lambda x : ~np.isnan(x) and x > 0, otypes = [np.bool])
     if df.shape[0] > 0:
         for prot in sorted(pg.keys()):
             if prot == 'nan':
