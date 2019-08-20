@@ -343,7 +343,7 @@ def zero_center_normalize(df, samples, logInput=False, method="median"):
             v = v[np.logical_not(np.isinf(v))]
             try:
                 gmm.fit(np.matrix(v).T)
-                vmean = gmm.means_[np.argmin(gmm.covars_)]
+                vmean = gmm.means_[np.argmin(gmm.covariances_)][0]
                 norm_scale.append(vmean)
             except:
                 norm_scale.append(np.nanmean(v))
