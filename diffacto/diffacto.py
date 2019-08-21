@@ -4,7 +4,7 @@ from __future__ import division, print_function
 
 """diffacto.diffacto: provides entry point main()."""
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 
 import csv
 import re
@@ -20,10 +20,17 @@ from numpy import array, isfinite, nanmean, nansum
 from pyteomics import fasta
 
 # from numba import jit  # # Enable just-in-time compiler for speeding up
-#@jit
-def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
-               force_iter=False, min_noise=1e-4, fill_nan=0.0):
-    '''Bayesian Factor Analysis for Proteomics Summarization
+# @jit
+def fast_farms(
+    probes: np.array,
+    weight: float = 0.5,
+    mu: float = 0,
+    max_iter: int = 1000,
+    force_iter: bool = False,
+    min_noise: float = 1e-4,
+    fill_nan: float = 0.0,
+):
+    """Bayesian Factor Analysis for Proteomics Summarization
        A python translation of function "generateExprVal.method.farms" from
        Bioconductor FARMS.
        [http://www.bioconductor.org/packages/release/bioc/html/farms.html]
@@ -35,13 +42,13 @@ def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
        http://bioinformatics.oxfordjournals.org/cgi/content/abstract/22/8/943.
 
     Inputs:
-       probes: peptide abundance array (N peptides, M samples) in log scale.
-       weight: Hyperparameter (backscale factor) value in the range of [0,1]
+       probes:  Peptide abundance array (N peptides, M samples) in log scale.
+       weight:  Hyperparameter (backscale factor) value in the range of [0,1]
                 which determines the influence of the prior.
-       mu:     Hyperparameter value which allows to quantify different aspects
+       mu:      Hyperparameter value which allows to quantify different aspects
                 of potential prior knowledge. A value near zero assumes that
                 most genes do not contain a signal, and introduces a bias for
-                loading matrix elements near zero. '''
+                loading matrix elements near zero. """
 
     readouts = np.array(probes)
     if fill_nan != 0:
@@ -76,6 +83,7 @@ def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
     E = 1.0
     min_noise_square = min_noise ** 2
     C_diag = np.diag(C)
+
     for i in range(max_iter):
         # E step
         φ = λ / ψ
@@ -83,27 +91,40 @@ def fast_farms(probes, weight=0.5, mu=0, max_iter=1000,
         η = φ / a
         ζ = C.dot(η.T)
         E = 1 - η.dot(λ) + η.dot(ζ)
+
         # M step
         λ = ζ.T / (E + ψ * alpha)
         λ = np.asarray(λ)[0]
         ψ = C_diag - np.asarray(ζ)[0] * λ + ψ * alpha * λ * (mu - λ)
         ψ = np.maximum(ψ, min_noise_square)
-        if ψ[-1] == old_psi[-1] and ψ[0] == old_psi[0] and np.array_equal(ψ, old_psi) and np.array_equal(λ, old_lambda):
+        if (
+            ψ[-1] == old_psi[-1]
+            and ψ[0] == old_psi[0]
+            and np.array_equal(ψ, old_psi)
+            and np.array_equal(λ, old_lambda)
+        ):
             break
+
         if not force_iter:
             if abs(ψ - old_psi).max() / old_psi.max() < min_noise / 10:
                 break
+
         old_psi = ψ
         old_lambda = λ
+
     loading = np.sqrt(E[0, 0]) * λ
     φ = loading / ψ
     weights = loading / loading.max()  # rescale loadings to the range of [0,1]
     noise = 1 / (1 + np.matrix(loading) * np.matrix(φ).T)
-    return weights, noise[0, 0]
+    noise = noise[0, 0]
+    return weights, noise
 
 
-#@jit(nogil=True)
+# @jit(nogil=True)
 def fast_gmean_nomissing(weights, pep_abd, group_ix):
+    """
+    Calculate geometric means based on non-missing peptide readouts.
+    """
     abd_w = pep_abd * weights[..., None]
     one_w = abd_w / abd_w * weights[..., None]
     a_sums = np.nansum(abd_w, axis=0)
@@ -112,8 +133,11 @@ def fast_gmean_nomissing(weights, pep_abd, group_ix):
     return expr
 
 
-#@jit(nogil=True)
+# @jit(nogil=True)
 def sum_squares(pep_abd, group_ix, estimates):
+    """
+    Calculate sum of squared residuals
+    """
     global nGroups
     residual = 0.0
     for i in range(nGroups):
@@ -122,8 +146,21 @@ def sum_squares(pep_abd, group_ix, estimates):
     return residual
 
 
-#@jit(nogil=True)
+# @jit(nogil=True)
 def f_ANOVA(pep_abd, group_ix, estimates, null_ave, dof_loss=0):
+    """
+    Perform ANOVA
+    Inputs:
+        pep_abd:    Peptide abundance matrix
+        group_ix:   Index of sample groups
+        estimates:  Estimated abundances of sample groups
+        null_ave:   Global average
+        dof_loss:   Loss of dof due to averaging
+    Return:
+        f:          Value of F-statistic
+        dof1:       Degree of freedom of model 1
+        dof2:       Degree of freedom of model 2
+    """
     global nGroups
     ss_total = sum_squares(pep_abd, group_ix, null_ave)
     ss_resid = sum_squares(pep_abd, group_ix, estimates)
@@ -134,13 +171,15 @@ def f_ANOVA(pep_abd, group_ix, estimates, null_ave, dof_loss=0):
 
 
 def mv_impute(pep_abd, group_ix, least_missing=0.99, impute_as=0.001):
-    ''' Impute missing values when having a large proportion in a sample group.
+    """ Impute missing values when having a large proportion in a sample group.
     Inputs:
-        pep_abd:     n peptides, m samples, in linear scale
-        group_ix:    grouping index for each of the m samples
-        least_missing: set the minimum threshold of missng rate to trigger the
-                    imputation (Default: 99%).
-        impute_as: set missng values in the sample to this value '''
+        pep_abd:        n peptides, m samples, in linear scale
+        group_ix:       grouping index for each of the m samples
+        least_missing:  set the minimum threshold of missing rate to trigger the imputation (Default: 99%).
+        impute_as:      set missing values in the sample to this value
+    Return:
+        numpy array after replacing missing values with imputed values
+    """
     aT = np.array(pep_abd).T
     for ix in group_ix:
         if np.isnan(aT[ix]).sum() > least_missing * len(aT[ix].flatten()):
@@ -150,15 +189,17 @@ def mv_impute(pep_abd, group_ix, least_missing=0.99, impute_as=0.001):
     return aT.T
 
 
-#@jit(nogil=True)
+# @jit(nogil=True)
 def weighted_average(weights, pep_abd, group_ix):
-    '''
+    """
     Calculate weighted geometric means for sample groups
     Inputs:
-        weights:    weights of peptides after filtering by loading threshold
-        pep_abd:    peptide abundances after filtering by loading threshold
-        group_ix:   array indexes of sample groups
-    '''
+        weights:    Weights of peptides after filtering by loading threshold
+        pep_abd:    Peptide abundances after filtering by loading threshold
+        group_ix:   Array indexes of sample groups
+    Return:
+        expr:       Estimated expression levels
+    """
     global nGroups
     abd_w = pep_abd * weights[..., None]
     one_w = abd_w / abd_w * weights[..., None]
@@ -175,8 +216,8 @@ def _init_pool(the_dict):
 
 def _load_fasta(db, id_regex):
     prot_dict = dict()
-    for header, seq, in fasta.read(db):
-        seq = seq.replace('I', 'L').upper()  # convert DB sequence I -> L
+    for header, seq in fasta.read(db):
+        seq = seq.replace("I", "L").upper()  # convert DB sequence I -> L
         prot_id = header.split()[0]
         if id_regex is not None:
             find_id = re.findall(id_regex, header)
@@ -186,18 +227,18 @@ def _load_fasta(db, id_regex):
     
     return prot_dict
 
+
 def _map_seq(p):
     global prot_dict
     pairs = []
-    for prot_id, seq, in prot_dict.items():
+    for prot_id, seq in prot_dict.items():
         if p in seq:
             pairs.append([p, prot_id])
     return pairs
 
 def peptide_db_graph(peps, db, id_regex=None):
-    ''' search a set of peptides against a FASTA database  '''
-    g = nx.Graph()
-    
+    """ search a set of peptides against a FASTA database  """
+    g = nx.Graph()    
     protdict = _load_fasta(db, id_regex)
     
     with Pool(initializer = _init_pool, initargs=(protdict,)) as pool:
@@ -210,12 +251,13 @@ def peptide_db_graph(peps, db, id_regex=None):
 
 
 def parsimony_grouping(g, peps):
-    ''' Group peptides to proteins using the rule of parsimony
+    """ Group peptides to proteins using the rule of parsimony
     Inputs:
         g:  an undirected graph with peptide <-> protein as edges
-        peps: the set of peptide sequences, nodes not listed in the peptide set
-              are protein IDs.
-    '''
+        peps: the set of peptide sequences, nodes not listed in the peptide set are protein IDs.
+    Return: 
+        prot_groups: a dictionary with mappings between proteins (keys) to peptides (values)
+    """
     not_peps = set(g.nodes()) - set(peps)
     prot_groups = dict()
     for cc in nx.connected_component_subgraphs(g):
@@ -227,10 +269,11 @@ def parsimony_grouping(g, peps):
         elif len(in_group_proteins) > 1:
             reported = set()
             while len(in_group_proteins - reported) > 0:
-                candidate_proteins = sorted(in_group_proteins - reported,
-                                            key=lambda p: (
-                                                len(set(cc[p].keys()) - reported), p),
-                                            reverse=True)
+                candidate_proteins = sorted(
+                    in_group_proteins - reported,
+                    key=lambda p: (len(set(cc[p].keys()) - reported), p),
+                    reverse=True,
+                )
                 p = candidate_proteins[0]
                 current_peps = set(cc[p].keys())
                 plabel = [p]
@@ -242,7 +285,7 @@ def parsimony_grouping(g, peps):
                     if len(_peps - current_peps) == 0:
                         reported.add(_p)
 
-                plabel = ';'.join(sorted(plabel))
+                plabel = ";".join(sorted(plabel))
                 if len(current_peps - reported) > 0:
                     prot_groups[plabel] = current_peps
                     reported = reported.union(current_peps)
@@ -251,16 +294,16 @@ def parsimony_grouping(g, peps):
 
 
 def protein_grouping(df, proteinDb):
-    '''
+    """
     Grouping peptide sequences in the given dataframe (df)
         by mapping to a protein database (FASTA);
         or by the first column of dataframe when the database is absent
-    '''
+    """
     peptides = sorted(set(df.index))
     if not proteinDb:
         g = nx.Graph()
         for i, x in df.iterrows():
-            for prot in x.values.astype('str')[0].split(';'):
+            for prot in x.values.astype("str")[0].split(";"):
                 if len(prot) > 0:
                     g.add_edge(i, prot)
     else:
@@ -269,82 +312,106 @@ def protein_grouping(df, proteinDb):
     return pg
 
 
-def zero_center_normalize(df, samples, logInput=False, method='median'):
-    '''
+def zero_center_normalize(df, samples, logInput=False, method="median"):
+    """
     Transforming input peptide abundance table into log2-scale and centralize to zero.
     Inputs:
-        df :        dataframe of peptide abundaces
+        df :        dataframe of peptide abundances
         samples:    column names of selected samples
         logInput:   input abundances are already in log scale
         method:     method for estimating zero point
-    '''
-    assert method in ('median', 'average', 'GMM'), \
-        'Zero centering method has to be among median, average or GMM!'
+    Return:
+        df:         the dataframe of peptide abundances after normalization
+    """
+    assert method in (
+        "median",
+        "average",
+        "GMM",
+    ), "Zero centering method has to be among median, average or GMM!"
+
     if not logInput:
         # convert abundances to log2 scale
         df[samples] = df[samples].apply(np.log2)
-    if method == 'average':
+    if method == "average":
         norm_scale = np.nanmean(df[samples], axis=0)
-    elif method == 'median':
+    elif method == "median":
         norm_scale = np.nanmedian(df[samples], axis=0)
-    elif method == 'GMM':
-        ''' two-component Gaussian mixture model '''
-        from sklearn.mixture import GMM
+    elif method == "GMM":
+        """ two-component Gaussian mixture model """
+        from sklearn.mixture import GaussianMixture as GMM
+
         gmm = GMM(2)
+
         norm_scale = []
         for sp in samples:
             v = df[sp].values
             v = v[np.logical_not(np.isnan(v))]
             v = v[np.logical_not(np.isinf(v))]
             try:
-                gmm.fit(np.matrix(v.values).T)
-                vmean = gmm.means_[np.argmin(gmm.covars_)]
+                gmm.fit(np.matrix(v).T)
+                vmean = gmm.means_[np.argmin(gmm.covariances_)][0]
                 norm_scale.append(vmean)
             except:
                 norm_scale.append(np.nanmean(v))
         norm_scale = np.array(norm_scale)
+
+        print(
+            "Caution!!",
+            "Two-component Gaussian mixture model is used to center peptide abundances!",
+            "Centring factors are:",
+            *[
+                "Sample:{}\tGMM:{:.3f}\t Median:{:.3f}".format(s, g, m)
+                for s, g, m in zip(
+                    samples, norm_scale, np.nanmedian(df[samples], axis=0)
+                )
+            ],
+            "Check if GMM estimated values deviate greatly from median values.",
+            "If in doubt, use other metrics (e.g. median) to centre the abundances!!\n",
+            sep="\n"
+        )
     df[samples] = df[samples] - norm_scale
     return df
 
 
-def pqpq(peptide_abundances, metric='correlation', method='complete', t=0.4):
-    ''' The essential PQPQ2 process from @yafeng
+def pqpq(peptide_abundances, metric="correlation", method="complete", t=0.4):
+    """ The essential PQPQ2 process from @yafeng
         [https://github.com/yafeng/pqpq_python/blob/master/pqpq2.py]
-    '''
+    """
     from scipy import cluster
+
     d = cluster.hierarchy.distance.pdist(peptide_abundances, metric)
     if metric == "correlation":
         D = np.clip(d, 0, 2)
     else:
         D = d
     L = cluster.hierarchy.linkage(D, method, metric)
-    ind = cluster.hierarchy.fcluster(L, t, 'distance')
+    ind = cluster.hierarchy.fcluster(L, t, "distance")
     return ind
 
 
 # =====================
 # Monte Carlo permutation tests
 def monte_carlo_permutation(samp_index, n):
-    '''
+    """
     Generating a batch of random permutations of sample indexes
     Inputs:
         samp_index: array indexes of sample groups
         n:          size of the batch of permutations
-    '''
+    """
     flat = np.hstack(samp_index)
     ix = [0]
     [ix.append(ix[-1] + len(i)) for i in samp_index]
     for i in range(n):
         permute = np.random.permutation(flat)
-        new_ix = [permute[ix[i - 1]:ix[i]] for i in range(1, len(ix))]
+        new_ix = [permute[ix[i - 1] : ix[i]] for i in range(1, len(ix))]
         yield np.array(new_ix)
 
 
 def calc_q(pvals):
-    '''
-    Calculationg q-values based on a list of p-values, with a conservative estimate
-        of the proportion of true null hypotheses (pi0_hat) based on the given p-values.
-    '''
+    """
+    Calculate q-values based on a list of p-values, with a conservative estimate 
+    of the proportion of true null hypotheses (pi0_hat) based on the given p-values.
+    """
     pv = np.array(pvals)
     pv = pv[isfinite(pv)]
     pi0_hat = min(1, np.sum(pv) * 2 / len(pv))
@@ -353,16 +420,23 @@ def calc_q(pvals):
     for i, rank in enumerate(ranking):
         qlist[i] = min(qlist[ranking >= rank])
     qlist = list(qlist)
-    qvals = np.ones_like(pvals)
+    qvals = list(np.ones_like(pvals))
     for i, e in enumerate(pvals):
         if isfinite(e):
             qvals[i] = qlist.pop(0)
     return qvals
 
 
-def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
-                  terminate_t=50, target_fdr=0.05, sn_threshold=-20):
-    '''
+def perform_mcfdr(
+    diffacto_res,
+    sampIx,
+    max_mc=1e5,
+    batch_size=100,
+    terminate_t=50,
+    target_fdr=0.05,
+    sn_threshold=-20,
+):
+    """
     Sequential Monte Carlo permutation test
     Inputs:
         diffacto_res:   a dictionary of Diffacto statistics for each protein
@@ -371,8 +445,8 @@ def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
         batch_size:     number of permutations for every iteration
         terminate_t:    target number of permutation tests with better statistics to terminate the simulation for one protein
         target_fdr:     target level of FDR to stop simulation for the remaining proteins.
-        sn_threshold:   sinal-to-noise threshold for exclusion of non-informative proteins.
-    '''
+        sn_threshold:   signal-to-noise threshold for exclusion of non-informative proteins.
+    """
     proteins = sorted(diffacto_res.keys())
     preTermination = set()
     for batch in range(1, int(max_mc / batch_size) + 2):
@@ -402,19 +476,20 @@ def perform_mcfdr(diffacto_res, sampIx, max_mc=1e5, batch_size=100,
                 preTermination.add(prot)
 
         mc_fdr = calc_q(mc_pvals)
-        curr_prot = [proteins.index(p) for p in proteins
-                     if p not in preTermination]
+        curr_prot = [proteins.index(p) for p in proteins if p not in preTermination]
 
-        if len(curr_prot) == 0 \
-                or max(mc_fdr[curr_prot]) < target_fdr \
-                or batch * batch_size >= max_mc:
+        if (
+            len(curr_prot) == 0
+            or max(mc_fdr[curr_prot]) < target_fdr
+            or batch * batch_size >= max_mc
+        ):
             print("Monte Carlo permutation test finished.")
             return zip(proteins, mc_pvals, mc_fdr)
         else:
-            print("%d times simulation, %d proteins remaining (FDR %.3f)" %
-                  (batch * batch_size, len(curr_prot), max(mc_fdr[curr_prot])))
-
-
+            print(
+                "%d times simulation, %d proteins remaining (FDR %.3f)"
+                % (batch * batch_size, len(curr_prot), max(mc_fdr[curr_prot]))
+            )
 
 
 # =================================================
@@ -428,7 +503,7 @@ def main():
     SUMMARIZE_EACH_RUN = False
     TOPN = 3
     T_PQPQ = 0.4
-    EXAMPLE = 'HUMAN'
+    EXAMPLE = "HUMAN"
 
     MC_SIMULATION = True
     MC_MAX_N = 200000
@@ -436,84 +511,127 @@ def main():
     MC_MAX_HIT = MC_MAX_N / 1000
 
     apars = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
-    apars.add_argument('-i', required=True, nargs=1,
-                       help='''Peptides abundances in CSV format.
+    apars.add_argument(
+        "-i",
+        required=True,
+        nargs=1,
+        help="""Peptides abundances in CSV format.
                                The first row should contain names for all samples.
                                The first column should contain unique peptide sequences.
                                Missing values should be empty instead of zeros.
-                       ''')
+                       """,
+    )
     # The first column contains unique peptide sequences
     # Missing values should be empty instead of zeros
 
-    apars.add_argument('-db', nargs='?',
-                       help='''Protein database in FASTA format.
+    apars.add_argument(
+        "-db",
+        nargs="?",
+        help="""Protein database in FASTA format.
         If None, the peptide file must have protein ID(s) in the second column.
-        ''')
+        """,
+    )
 
-    apars.add_argument('-samples', nargs='?',
-                       help='''File of the sample list.
+    apars.add_argument(
+        "-samples",
+        nargs="?",
+        help="""File of the sample list.
         One run and its sample group per line, separated by tab.
         If None, read from peptide file headings,
            then each run will be summarized as a group.
-        ''')
+        """,
+    )
 
-    apars.add_argument('-log2', default='False',
-                       help='Input abundances are in log scale (True) or linear scale (False)')
+    apars.add_argument(
+        "-log2",
+        default="False",
+        help="Input abundances are in log scale (True) or linear scale (False)",
+    )
 
-    apars.add_argument('-normalize',
-                       choices=['average', 'median', 'GMM', 'None'], default='None',
-                       help='Method for sample-wise normalization.')
+    apars.add_argument(
+        "-normalize",
+        choices=["average", "median", "GMM", "None"],
+        default="None",
+        help="Method for sample-wise normalization.",
+    )
     # Normalize input abundances (per sample) to zero-centered in log-scale
     # Valid methods include: 'average', 'median' or 'GMM' (two-component
     # Gaussian mixture model).  If None (default), do not normalize.
 
-    apars.add_argument('-farms_mu', type=float, default=0.1,
-                       help='Hyperparameter mu')
+    apars.add_argument("-farms_mu", type=float, default=0.1, help="Hyperparameter mu")
     # Hyperparameter mu of the FARMS algorithm: prior knowledge of the
     # expected loading.
 
-    apars.add_argument('-farms_alpha', type=float, default=0.1,
-                       help='Hyperparameter weight of prior probability')
+    apars.add_argument(
+        "-farms_alpha",
+        type=float,
+        default=0.1,
+        help="Hyperparameter weight of prior probability",
+    )
     # Hyperparameter weight of the FARMS algorithm: weight of prior
     # probability in EM calculation.
 
-    apars.add_argument('-reference', default='average',
-                       help='Names of reference sample groups (separated by semicolon)')
+    apars.add_argument(
+        "-reference",
+        default="average",
+        help="Names of reference sample groups (separated by semicolon)",
+    )
     # If average (default) calculate average abundance as the reference.
     # Otherwise, keep peptide abundance values as is.
 
-    apars.add_argument('-min_samples', type=int, default=1,
-                       help='Minimum number of samples peptides needed to be quantified in')
+    apars.add_argument(
+        "-min_samples",
+        type=int,
+        default=1,
+        help="Minimum number of samples peptides needed to be quantified in",
+    )
     # Peptides quantified in less than the minimum number will be discarded
 
-    apars.add_argument('-use_unique', default='False',
-                       help='Use unique peptides only')
+    apars.add_argument("-use_unique", default="False", help="Use unique peptides only")
 
-    apars.add_argument('-impute_threshold', type=float,
-                       default=0.99,
-                       help='''Minimum fraction of missing values in the group. Impute missing values if missing fraction is larger than the threshold. ''')
+    apars.add_argument(
+        "-impute_threshold",
+        type=float,
+        default=0.99,
+        help=(
+            "Minimum fraction of missing values in the group. "
+            "Impute missing values if missing fraction is larger than the threshold. "
+        ),
+    )
 
-    apars.add_argument('-cutoff_weight', type=float, default=0.5,
-                       help='Peptides weighted lower than the cutoff will be excluded')
+    apars.add_argument(
+        "-cutoff_weight",
+        type=float,
+        default=0.5,
+        help="Peptides weighted lower than the cutoff will be excluded",
+    )
 
-    apars.add_argument('-fast', default='False',
-                       help='Allow early termination in EM calculation when noise is sufficiently small.')
+    apars.add_argument(
+        "-fast",
+        default="False",
+        help="Allow early termination in EM calculation when noise is sufficiently small.",
+    )
 
-    apars.add_argument('-out', type=argparse.FileType('w'),
-                       default=sys.stdout,
-                       help='Path to output file (writing in TSV format).')
+    apars.add_argument(
+        "-out",
+        type=argparse.FileType("w"),
+        default=sys.stdout,
+        help="Path to output file (writing in TSV format).",
+    )
 
-    apars.add_argument('-mc_out', default=None,
-                       help='Path to MCFDR output (writing in TSV format).')
+    apars.add_argument(
+        "-mc_out", default=None, help="Path to MCFDR output (writing in TSV format)."
+    )
 
     # ------------------------------------------------
     args = apars.parse_args()
 
     def boolparam(p):
-        ''' convert a string parameter to boolean value'''
-        if str(p).lower() in ('yes', 'true', 't', 'y', '1'):
+        """ convert a string parameter to boolean value"""
+        if str(p).lower() in ("yes", "true", "t", "y", "1"):
             return True
         else:
             return False
@@ -524,20 +642,22 @@ def main():
     print(args)
     diffacto_res = dict()
     df = pandas.read_csv(args.i[0], index_col=0)
-    df.index = [i.upper().replace('I', 'L') for i in df.index]
+    df.index = [i.upper().replace("I", "L") for i in df.index]
     print("Abundance matrix loaded: %d peptides" % len(df.index))
 
-    if not args.samples:  # read sample names from header
+    if not args.samples:
+        # read sample names from header
         samples = df.columns.tolist()
         if args.db is None:
             samples.pop(0)
         groups = samples
-    else:  # read sample labels
+    else:
+        # read sample labels
         samples, groups = ([], [])
         with open(args.samples) as fh:
             for line in fh.readlines():
                 try:
-                    _s, _g = line.rstrip().split('\t')
+                    _s, _g = line.rstrip().split("\t")
                     samples.append(_s)
                     groups.append(_g)
                 except ValueError:
@@ -545,15 +665,16 @@ def main():
 
     # per sample normalization of peptide abundances
     logInput = args.log2
-    if not args.normalize == 'None':
+    if not args.normalize == "None":
         df = zero_center_normalize(
-            df, samples, logInput=logInput, method=args.normalize)
+            df, samples, logInput=logInput, method=args.normalize
+        )
         args.log2 = True
 
     # select reference runs if specified
     ref_samples = []
     if args.reference:
-        for r in args.reference.split(';'):
+        for r in args.reference.split(";"):
             for i in range(len(groups)):
                 if groups[i] == r:
                     ref_samples.append(i)
@@ -562,29 +683,35 @@ def main():
     print("Number of runs: %d" % len(samples))
 
     # sample grouping
-    group_names = [i for i in sorted(set(groups),
-                                     key=lambda k: "{0:0>50}".format(k))
-                   if i not in args.reference.split(';')]
+    group_names = [
+        i
+        for i in sorted(set(groups), key=lambda k: "{0:0>50}".format(k))
+        if i not in args.reference.split(";")
+    ]
     if len(group_names) == len(samples):
         group_names = samples
 
-    sampIx = np.array([[j for j in range(len(groups)) if groups[j] == i]
-                       for i in group_names])
+    sampIx = np.array(
+        [[j for j in range(len(groups)) if groups[j] == i] for i in group_names]
+    )
     global nGroups
     nGroups = len(group_names)
     print("Number of sample groups: %d" % nGroups)
-    print("Reference runs (%d): " % len(ref_samples), *ref_samples, sep='\t')
+    print("Reference runs (%d): " % len(ref_samples), *ref_samples, sep="\t")
 
     # protein grouping
     pg = protein_grouping(df, args.db)
     print("Number of protein groups: %d" % len(pg.keys()))
 
     # coverage filtering
-    df = df[[np.count_nonzero(np.nan_to_num(v)) >=
-             args.min_samples for v in df[samples].values]]
+    df = df[
+        [
+            np.count_nonzero(np.nan_to_num(v)) >= args.min_samples
+            for v in df[samples].values
+        ]
+    ]
 
-    # reversed mapping (peptide to protein group) for checking peptide
-    # uniqueness.
+    # reversed mapping (peptide to protein group) for checking peptide uniqueness.
     pep2prot = defaultdict(list)
     for prot_ids, bseqs in pg.items():
         for s in bseqs:
@@ -594,50 +721,58 @@ def main():
     if args.use_unique:
         df = df[[len(pep2prot[p]) == 1 for p in df.index]]
 
-    #Check that we don't have any peptides with a single non-missing value. These tend to break diffacto, because in fast_farms we end up with a covariance matrix of less than full rank. Which the algorithm is not set up to handle.
-    nonZeroNonMissing = np.vectorize(lambda x : ~np.isnan(x) and x > 0, otypes = [np.bool])
+    # Check that we don't have any peptides with a single non-missing value.
+    # These tend to break diffacto, because in fast_farms we end up with a covariance matrix of less than full rank. Which the algorithm is not set up to handle.
+    nonZeroNonMissing = np.vectorize(
+        lambda x: ~np.isnan(x) and x != 0, otypes=[np.bool]
+    )
     if df.shape[0] > 0:
         for prot in sorted(pg.keys()):
-            if prot == 'nan':
+            if prot == "nan":
                 continue
             if DEBUG and EXAMPLE not in prot:
                 continue
             # =====----=====-----=====-----=====
             peps = pg[prot]  # constituent peptides
-            dx = df.ix[[p for p in sorted(peps) if p in df.index]]  # dataframe
+            dx = df.loc[[p for p in sorted(peps) if p in df.index]]  # dataframe
             pep_count = len(dx)  # number of peptides
             pep_abd = dx[samples].values
-            counts = np.sum(nonZeroNonMissing(pep_abd), axis = 1)
+            counts = np.sum(nonZeroNonMissing(pep_abd), axis=1)
             if any(counts < 2):
-                print("Protein {} contained peptides with fewer than two non-missing or non-zero values. Please remove these peptides".format(prot))
+                print(
+                    "Protein {} contained peptides with fewer than two non-missing or non-zero values. Please remove these peptides".format(
+                        prot
+                    )
+                )
                 return
 
     # -------------------------------------------------------------------------
     # perform differential analysis
-    output_header = ['Protein', 'N.Pept', 'Q.Pept', 'S/N', 'P(PECA)']
+    output_header = ["Protein", "N.Pept", "Q.Pept", "S/N", "P(PECA)"]
     output_header += group_names
     if SUMMARIZE_EACH_RUN:
-        output_header += ['P(Top-%d)' % TOPN, 'P(Median)', 'P(PQPQ)']
+        output_header += ["P(Top-%d)" % TOPN, "P(Median)", "P(PQPQ)"]
         output_header += ["Top-%d_%s" % (TOPN, s) for s in samples]
         output_header += ["Median_%s" % s for s in samples]
         output_header += ["PQPQ_%s" % s for s in samples]
 
-    print(*output_header, sep='\t', file=args.out)
+    print(*output_header, sep="\t", file=args.out)
     for prot in sorted(pg.keys()):
-        if prot == 'nan':
+        if prot == "nan":
             continue
         if DEBUG and EXAMPLE not in prot:
             continue
         # =====----=====-----=====-----=====
         peps = pg[prot]  # constituent peptides
-        dx = df.ix[[p for p in sorted(peps) if p in df.index]]  # dataframe
+        dx = df.loc[[p for p in sorted(peps) if p in df.index]]  # dataframe
         pep_count = len(dx)  # number of peptides
         pep_abd = dx[samples].values
 
         if len(ref_samples):  # rescale peptide abundances by reference runs
-            reference_abundance = dx[ref_samples].mean(
-                axis=1).fillna(np.nanmean(dx[samples])).values
-        elif args.reference.lower() == 'average':  # rescale by average values
+            reference_abundance = (
+                dx[ref_samples].mean(axis=1).fillna(np.nanmean(dx[samples])).values
+            )
+        elif args.reference.lower() == "average":  # rescale by average values
             reference_abundance = dx[samples].mean(axis=1).values
         else:
             if not args.log2:
@@ -651,24 +786,36 @@ def main():
 
         pep_abd = (pep_abd.T - reference_abundance).T
 
-        if pep_count == 1:  # single peptide group
+        if pep_count == 1:
+            # single peptide group
             loading = array([1 for _ in dx.index])
             noise = 1.0
-            continue  # do not report
+            continue
+            # do not report
         elif pep_count > 1:
-            loading, noise = fast_farms(pep_abd,
-                                        mu=args.farms_mu,
-                                        weight=args.farms_alpha,
-                                        max_iter=1000,
-                                        force_iter=not args.fast)
+            loading, noise = fast_farms(
+                pep_abd,
+                mu=args.farms_mu,
+                weight=args.farms_alpha,
+                max_iter=1000,
+                force_iter=not args.fast,
+            )
         else:
             continue
 
-        sn = 10 * np.log10((1 - noise) / noise)
+        if noise < 1:
+            sn = 10 * np.log10((1 - noise) / noise)
+        else:
+            # fix log(0) issue
+            sn = -np.inf
+
         qc = loading > args.cutoff_weight
-        abd_qc = mv_impute(pep_abd[qc], sampIx,
-                           least_missing=args.impute_threshold,
-                           impute_as=np.nanmin(pep_abd) - 1)
+        abd_qc = mv_impute(
+            pep_abd[qc],
+            sampIx,
+            least_missing=args.impute_threshold,
+            impute_as=np.nanmin(pep_abd) - 1,
+        )
         protein_summary_group = weighted_average(loading[qc], abd_qc, sampIx)
 
         if SUMMARIZE_EACH_RUN:
@@ -678,41 +825,59 @@ def main():
                 v = dx[samples].values
                 if logInput:
                     v = 2 ** v
-                protein_summary_topn = np.array([np.mean(np.sort(v[:, i][isfinite(v[:, i])])[-TOPN:])
-                                                 for i in range(len(samples))])
-                p_ave = stats.f_oneway(*[protein_summary_topn[s][isfinite(protein_summary_topn[s])]
-                                         for s in sampIx])[1]
+                protein_summary_topn = np.array(
+                    [
+                        np.mean(np.sort(v[:, i][isfinite(v[:, i])])[-TOPN:])
+                        for i in range(len(samples))
+                    ]
+                )
+                p_ave = stats.f_oneway(
+                    *[
+                        protein_summary_topn[s][isfinite(protein_summary_topn[s])]
+                        for s in sampIx
+                    ]
+                )[1]
 
                 # Median
                 v = dx[samples].values
                 protein_summary_median = np.nanmedian(v, axis=0)
                 p_med = stats.f_oneway(
-                    *[protein_summary_median[s][isfinite(protein_summary_median[s])] for s in sampIx])[1]
+                    *[
+                        protein_summary_median[s][isfinite(protein_summary_median[s])]
+                        for s in sampIx
+                    ]
+                )[1]
 
                 # PQPQ clustering and averaging
                 v = np.nan_to_num(pep_abd)
                 clusters = pqpq(v, t=T_PQPQ)
-                major = sorted([(len(clusters[clusters == i]), i)
-                                for i in set(clusters.tolist())])[-1]
+                major = sorted(
+                    [(len(clusters[clusters == i]), i) for i in set(clusters.tolist())]
+                )[-1]
                 if major[0] >= 2:
                     clusters[clusters != major[1]] = 0
                     clusters[clusters != 0] = 1
                 else:
                     clusters = np.ones(*clusters.shape)
                 protein_summary_pqpq = np.nanmean(
-                    dx[samples].values[clusters > 0], axis=0)
-                p_pqpq = stats.f_oneway(*[protein_summary_pqpq[s][isfinite(protein_summary_pqpq[s])]
-                                          for s in sampIx])[1]
+                    dx[samples].values[clusters > 0], axis=0
+                )
+                p_pqpq = stats.f_oneway(
+                    *[
+                        protein_summary_pqpq[s][isfinite(protein_summary_pqpq[s])]
+                        for s in sampIx
+                    ]
+                )[1]
 
         # ================================================================
         # PECA: grouping peptide-level p-values based on beta distribution
         # https://www.bioconductor.org/packages/release/bioc/html/PECA.html
-        '''
-        Calculates Probe-level Expression Change Averages (PECA)
+        """
+        Calculate Probe-level Expression Change Averages (PECA)
         to identify differential expression in Affymetrix gene expression
         microarray studies or in proteomic studies using peptide-level
         mesurements respectively.
-        '''
+        """
         pep_pvals = []
         for pep_v in abd_qc:
             with warnings.catch_warnings():
@@ -740,33 +905,40 @@ def main():
         if not logInput:
             protein_summary_group = 2 ** protein_summary_group
 
-        output_row = [prot, pep_count, sum(qc), sn, p_peca] \
-            + list(protein_summary_group)
+        output_row = [prot, pep_count, sum(qc), sn, p_peca] + list(
+            protein_summary_group
+        )
 
         if SUMMARIZE_EACH_RUN:
-            output_row += [p_ave, p_med, p_pqpq] \
-                + list(protein_summary_topn) \
-                + list(protein_summary_median) \
+            output_row += (
+                [p_ave, p_med, p_pqpq]
+                + list(protein_summary_topn)
+                + list(protein_summary_median)
                 + list(protein_summary_pqpq)
+            )
 
-        print(*output_row, sep='\t', file=args.out)
+        print(*output_row, sep="\t", file=args.out)
 
     if MC_SIMULATION and args.mc_out:
         try:
-            mc_out = open(args.mc_out, 'w')
+            mc_out = open(args.mc_out, "w")
         except:
-            print('Cannot open file: ', args.mc_out, '. Use stdout instead.')
+            print("Cannot open file: ", args.mc_out, ". Use stdout instead.")
             mc_out = sys.stdout
 
-        print('Protein', 'P(MC)', 'MCFDR', sep='\t', file=mc_out)
-        mc_result = perform_mcfdr(diffacto_res, sampIx,
-                                  max_mc=MC_MAX_N,
-                                  batch_size=MC_BATCH_SIZE,
-                                  terminate_t=MC_MAX_HIT,
-                                  target_fdr=0.05)
+        print("Protein", "P(MC)", "MCFDR", sep="\t", file=mc_out)
+        mc_result = perform_mcfdr(
+            diffacto_res,
+            sampIx,
+            max_mc=MC_MAX_N,
+            batch_size=MC_BATCH_SIZE,
+            terminate_t=MC_MAX_HIT,
+            target_fdr=0.05,
+        )
 
         for prot, p, q in mc_result:
-            print(prot, p, q, sep='\t', file=mc_out)
+            print(prot, p, q, sep="\t", file=mc_out)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
