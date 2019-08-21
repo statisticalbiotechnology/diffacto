@@ -210,9 +210,11 @@ def weighted_average(weights, pep_abd, group_ix):
         expr[i] = a_sums[group_ix[i]].sum() / w_sums[group_ix[i]].sum()
     return expr
 
+def _init_pool(the_dict):
+        global prot_dict
+        prot_dict = the_dict
 
 def _load_fasta(db, id_regex):
-    global prot_dict
     prot_dict = dict()
     for header, seq in fasta.read(db):
         seq = seq.replace("I", "L").upper()  # convert DB sequence I -> L
@@ -222,23 +224,26 @@ def _load_fasta(db, id_regex):
             if len(find_id) > 0:
                 prot_id = find_id[0]
         prot_dict[prot_id] = seq
+    
+    return prot_dict
 
 
 def _map_seq(p):
+    global prot_dict
     pairs = []
     for prot_id, seq in prot_dict.items():
         if p in seq:
             pairs.append([p, prot_id])
     return pairs
 
-
 def peptide_db_graph(peps, db, id_regex=None):
     """ search a set of peptides against a FASTA database  """
-    g = nx.Graph()
-
-    with Pool(initializer=_load_fasta(db, id_regex)) as pool:
+    g = nx.Graph()    
+    protdict = _load_fasta(db, id_regex)
+    
+    with Pool(initializer = _init_pool, initargs=(protdict,)) as pool:
         mapped_ppps = pool.map(_map_seq, peps)
-
+    
     for ppps in mapped_ppps:
         if len(ppps):
             g.add_edges_from(ppps)
