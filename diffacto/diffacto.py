@@ -336,6 +336,7 @@ def zero_center_normalize(df, samples, logInput=False, method="median"):
         from sklearn.mixture import GaussianMixture as GMM
 
         gmm = GMM(2)
+
         norm_scale = []
         for sp in samples:
             v = df[sp].values
@@ -348,6 +349,21 @@ def zero_center_normalize(df, samples, logInput=False, method="median"):
             except:
                 norm_scale.append(np.nanmean(v))
         norm_scale = np.array(norm_scale)
+
+        print(
+            "Caution!!",
+            "Two-component Gaussian mixture model is used to center peptide abundances!",
+            "Centring factors are:",
+            *[
+                "Sample:{}\tGMM:{:.3f}\t Median:{:.3f}".format(s, g, m)
+                for s, g, m in zip(
+                    samples, norm_scale, np.nanmedian(df[samples], axis=0)
+                )
+            ],
+            "Check if GMM estimated values deviate greatly from median values.",
+            "If in doubt, use other metrics (e.g. median) to centre the abundances!!\n",
+            sep="\n"
+        )
     df[samples] = df[samples] - norm_scale
     return df
 
@@ -702,7 +718,9 @@ def main():
 
     # Check that we don't have any peptides with a single non-missing value.
     # These tend to break diffacto, because in fast_farms we end up with a covariance matrix of less than full rank. Which the algorithm is not set up to handle.
-    nonZeroNonMissing = np.vectorize(lambda x: ~np.isnan(x) and x > 0, otypes=[np.bool])
+    nonZeroNonMissing = np.vectorize(
+        lambda x: ~np.isnan(x) and x != 0, otypes=[np.bool]
+    )
     if df.shape[0] > 0:
         for prot in sorted(pg.keys()):
             if prot == "nan":
