@@ -420,11 +420,11 @@ def calc_q(pvals):
     for i, rank in enumerate(ranking):
         qlist[i] = min(qlist[ranking >= rank])
     qlist = list(qlist)
-    qvals = list(np.ones_like(pvals))
+    qvals = np.ones_like(pvals).tolist()
     for i, e in enumerate(pvals):
         if isfinite(e):
             qvals[i] = qlist.pop(0)
-    return qvals
+    return np.array(qvals)
 
 
 def perform_mcfdr(
