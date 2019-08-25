@@ -4,7 +4,7 @@ from __future__ import division, print_function
 
 """diffacto.diffacto: provides entry point main()."""
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 import csv
 import re
@@ -224,7 +224,7 @@ def _load_fasta(db, id_regex):
             if len(find_id) > 0:
                 prot_id = find_id[0]
         prot_dict[prot_id] = seq
-    
+
     return prot_dict
 
 
@@ -238,12 +238,12 @@ def _map_seq(p):
 
 def peptide_db_graph(peps, db, id_regex=None):
     """ search a set of peptides against a FASTA database  """
-    g = nx.Graph()    
+    g = nx.Graph()
     protdict = _load_fasta(db, id_regex)
-    
+
     with Pool(initializer = _init_pool, initargs=(protdict,)) as pool:
         mapped_ppps = pool.map(_map_seq, peps)
-    
+
     for ppps in mapped_ppps:
         if len(ppps):
             g.add_edges_from(ppps)
@@ -255,7 +255,7 @@ def parsimony_grouping(g, peps):
     Inputs:
         g:  an undirected graph with peptide <-> protein as edges
         peps: the set of peptide sequences, nodes not listed in the peptide set are protein IDs.
-    Return: 
+    Return:
         prot_groups: a dictionary with mappings between proteins (keys) to peptides (values)
     """
     not_peps = set(g.nodes()) - set(peps)
@@ -409,7 +409,7 @@ def monte_carlo_permutation(samp_index, n):
 
 def calc_q(pvals):
     """
-    Calculate q-values based on a list of p-values, with a conservative estimate 
+    Calculate q-values based on a list of p-values, with a conservative estimate
     of the proportion of true null hypotheses (pi0_hat) based on the given p-values.
     """
     pv = np.array(pvals)
