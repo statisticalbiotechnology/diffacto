@@ -260,7 +260,7 @@ def parsimony_grouping(g, peps):
     """
     not_peps = set(g.nodes()) - set(peps)
     prot_groups = dict()
-    for cc in nx.connected_component_subgraphs(g):
+    for cc in (g.subgraph(c).copy() for c in nx.connected_components(g)):
         in_group_peptides = set(cc.nodes()) - not_peps
         in_group_proteins = not_peps.intersection(cc.nodes())
 
