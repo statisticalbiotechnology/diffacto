@@ -87,7 +87,7 @@ def fast_farms(
     for i in range(max_iter):
         # E step
         φ = λ / ψ
-        a = 1 + np.matrix(λ) * np.matrix(φ).T
+        a = 1 + λ.reshape(1, -1) * φ.reshape(-1, 1)
         η = φ / a
         ζ = C.dot(η.T)
         E = 1 - η.dot(λ) + η.dot(ζ)
@@ -115,7 +115,7 @@ def fast_farms(
     loading = np.sqrt(E[0, 0]) * λ
     φ = loading / ψ
     weights = loading / loading.max()  # rescale loadings to the range of [0,1]
-    noise = 1 / (1 + np.matrix(loading) * np.matrix(φ).T)
+    noise = 1 / (1 + loading.reshape(1, -1) * φ.reshape(-1, 1))
     noise = noise[0, 0]
     return weights, noise
 
@@ -166,6 +166,8 @@ def f_ANOVA(pep_abd, group_ix, estimates, null_ave, dof_loss=0):
     ss_resid = sum_squares(pep_abd, group_ix, estimates)
     dof1 = nGroups - 1
     dof2 = isfinite(pep_abd).sum() - nGroups - dof_loss
+    if dof2 <= 0:
+        return np.nan, dof1, dof2
     f = ((ss_total - ss_resid) / dof1) / (ss_resid / dof2)
     return f, dof1, dof2
 
@@ -202,12 +204,16 @@ def weighted_average(weights, pep_abd, group_ix):
     """
     global nGroups
     abd_w = pep_abd * weights[..., None]
+    count_peptides = np.sum(~np.isnan(pep_abd), axis = 0)
     one_w = abd_w / abd_w * weights[..., None]
     a_sums = np.nansum(abd_w, axis=0)
     w_sums = np.nansum(one_w, axis=0)
     expr = np.empty(nGroups)
     for i in range(expr.shape[0]):
-        expr[i] = a_sums[group_ix[i]].sum() / w_sums[group_ix[i]].sum()
+        if count_peptides[i] > 0:
+            expr[i] = a_sums[group_ix[i]].sum() / w_sums[group_ix[i]].sum()
+        else:
+            expr[i] = np.nan
     return expr
 
 def _init_pool(the_dict):
@@ -260,7 +266,7 @@ def parsimony_grouping(g, peps):
     """
     not_peps = set(g.nodes()) - set(peps)
     prot_groups = dict()
-    for cc in nx.connected_component_subgraphs(g):
+    for cc in (g.subgraph(c).copy() for c in nx.connected_components(g)):
         in_group_peptides = set(cc.nodes()) - not_peps
         in_group_proteins = not_peps.intersection(cc.nodes())
 
@@ -894,7 +900,10 @@ def main():
         pep_pvals = np.array(pep_pvals)
         pep_pvals = pep_pvals[isfinite(pep_pvals)]
         beta_ab = len(pep_pvals) / 2 + 0.5
-        p_peca = stats.beta.cdf(np.median(pep_pvals), beta_ab, beta_ab)
+        if len(pep_pvals) > 0:
+            p_peca = stats.beta.cdf(np.median(pep_pvals), beta_ab, beta_ab)
+        else:
+            p_peca = np.nan
 
         if MC_SIMULATION:
             grand_ave = np.broadcast_to(np.nanmean(abd_qc), (nGroups, 1))
