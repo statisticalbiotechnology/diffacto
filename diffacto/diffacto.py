@@ -87,7 +87,7 @@ def fast_farms(
     for i in range(max_iter):
         # E step
         φ = λ / ψ
-        a = 1 + λ.reshape(1, -1) * φ.reshape(-1, 1)
+        a = 1 + np.matmul(λ.reshape(1, -1), φ.reshape(-1, 1))
         η = φ / a
         ζ = C.dot(η.T)
         E = 1 - η.dot(λ) + η.dot(ζ)
@@ -115,7 +115,7 @@ def fast_farms(
     loading = np.sqrt(E[0, 0]) * λ
     φ = loading / ψ
     weights = loading / loading.max()  # rescale loadings to the range of [0,1]
-    noise = 1 / (1 + loading.reshape(1, -1) * φ.reshape(-1, 1))
+    noise = 1 / (1 + np.matmul(loading.reshape(1, -1), φ.reshape(-1, 1)))
     noise = noise[0, 0]
     return weights, noise
 
