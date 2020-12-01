@@ -632,6 +632,8 @@ def main():
         "-mc_out", default=None, help="Path to MCFDR output (writing in TSV format)."
     )
 
+    apars.add_argument('-loadings_out', default=None,
+                       help='File for peptide loadings (writing in TSV format).')
     # ------------------------------------------------
     args = apars.parse_args()
 
@@ -752,6 +754,8 @@ def main():
                 )
                 return
 
+    if args.loadings_out is not None:
+        loadings_out_file = open(args.loadings_out, 'w')
     # -------------------------------------------------------------------------
     # perform differential analysis
     output_header = ["Protein", "N.Pept", "Q.Pept", "S/N", "P(PECA)"]
@@ -814,6 +818,10 @@ def main():
         else:
             # fix log(0) issue
             sn = -np.inf
+
+        if args.loadings_out is not None:
+            for pep, pepLoading in zip(peps, loading):
+                print(prot, pep, pepLoading, sep="\t", file = loadings_out_file)
 
         qc = loading > args.cutoff_weight
         abd_qc = mv_impute(
