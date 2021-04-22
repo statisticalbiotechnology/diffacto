@@ -15,8 +15,8 @@ Packages needed:
 - scikit-learn 0.17+
 - pyteomics_ 3.3+
 
-.. _Anaconda: https://www.continuum.io/downloads
-.. _pyteomics: https://pythonhosted.org/pyteomics
+.. _Anaconda: https://www.anaconda.com/
+.. _pyteomics: https://pyteomics.readthedocs.io/
 
 Installation via ``pip``
 *************************
