@@ -1,16 +1,19 @@
 ## Diffacto: Examples
 ----
 
+To run these examples, clone this git repository and decend to the example directory.
+To install dependencies run 
+<code> pip install pyteomics numpy networkx scikit-learn scipy</code>
 
 #### Print usage information
-<code>python run_diffacto.py  -h </code>
+<code>python ../run_diffacto.py  -h </code>
 
 
 ---
 #### Example-1:
 
 <code>
-python run_diffacto.py -i iPRG.novo.pep.csv -samples iPRG.samples.lst -out iPRG.denovo.protein.txt -mc_out iPRG.denovo.protein.FDR -min_samples 4 -impute_threshold 0.9 -use_unique True -log2 False
+python ../run_diffacto.py -i iPRG.novo.pep.csv -samples iPRG.samples.lst -out iPRG.denovo.protein.txt -mc_out iPRG.denovo.protein.FDR -min_samples 4 -impute_threshold 0.9 -use_unique True -log2 False
 </code>
 
 # 
@@ -30,7 +33,7 @@ python run_diffacto.py -i iPRG.novo.pep.csv -samples iPRG.samples.lst -out iPRG.
 #### Example-2:
 
 <code>
-python run_diffacto.py -i HBY20Mix.peptides.csv -samples HBY20Mix.samples.lst -db UP000002311_559292.fasta -out HBY20Mix.protein.txt -min_samples 30 -impute_threshold 0.7 -log2 False -reference REF
+python ../run_diffacto.py -i HBY20Mix.peptides.csv -samples HBY20Mix.samples.lst -db UP000002311_559292.fasta -out HBY20Mix.protein.txt -min_samples 30 -impute_threshold 0.7 -log2 False -reference REF
 </code>
 
 #
