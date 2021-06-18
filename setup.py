@@ -96,7 +96,8 @@ setup(
         'pandas>=0.18',
         'networkx>=1.10',
         'scikit-learn>=0.17',
-        'pyteomics>=3.3'],
+        'pyteomics>=3.3',
+        'Cython>=0.26'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
