@@ -732,7 +732,7 @@ def main():
     # Check that we don't have any peptides with a single non-missing value.
     # These tend to break diffacto, because in fast_farms we end up with a covariance matrix of less than full rank. Which the algorithm is not set up to handle.
     nonZeroNonMissing = np.vectorize(
-        lambda x: ~np.isnan(x) and x != 0, otypes=[np.bool]
+        lambda x: ~np.isnan(x) and x != 0, otypes=[np.bool_]
     )
     if df.shape[0] > 0:
         for prot in sorted(pg.keys()):
